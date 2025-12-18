@@ -15,7 +15,7 @@ from unicode_ranges import (
 OUTPUT_DIR = "dist"
 
 OUT_FAMILY_NAME = "Yonhwa Magazine Sans"
-OUT_VERSION_STR = "Version 1.000"
+OUT_VERSION_STR = "Version 25w51a"
 FONT_VARIANTS = [
     {
         "base_font_path": "./font/Pretendard-Medium.otf",
@@ -27,26 +27,26 @@ FONT_VARIANTS = [
         "legacy_style_name": "Regular",
         "out_ps_name": "Yonhwa Magazine Sans Medium",
     },
-    # {
-    #     "base_font_path": "./font/Pretendard-ExtraBold.otf",
-    #     "korean_font_path": "./font/GmarketSansTTFBold.ttf",
-    #     "japanese_font_path": "./font/NotoSansCJKjp-Black.otf",
-    #     "digit_font_path": "./font/Lato-Black.ttf",
-    #     "out_font_filename": "YonhwaMagazineSans-Bold.ttf",
-    #     "out_style_name": "Bold",
-    #     "legacy_style_name": "Bold",
-    #     "out_ps_name": "Yonhwa Magazine Sans Bold",
-    # },
-    # {
-    #     "base_font_path": "./font/Pretendard-ExtraLight.otf",
-    #     "korean_font_path": "./font/GmarketSansTTFLight.ttf",
-    #     "japanese_font_path": "./font/NotoSansCJKjp-Light.otf",
-    #     "digit_font_path": "./font/Lato-Light.ttf",
-    #     "out_font_filename": "YonhwaMagazineSans-Light.ttf",
-    #     "out_style_name": "Light",
-    #     "legacy_style_name": "Light",
-    #     "out_ps_name": "Yonhwa Magazine Sans Light",
-    # },
+    {
+        "base_font_path": "./font/Pretendard-ExtraBold.otf",
+        "korean_font_path": "./font/GmarketSansTTFBold.ttf",
+        "japanese_font_path": "./font/NotoSansCJKjp-Black.otf",
+        "digit_font_path": "./font/Lato-Black.ttf",
+        "out_font_filename": "YonhwaMagazineSans-Bold.ttf",
+        "out_style_name": "Bold",
+        "legacy_style_name": "Bold",
+        "out_ps_name": "Yonhwa Magazine Sans Bold",
+    },
+    {
+        "base_font_path": "./font/Pretendard-ExtraLight.otf",
+        "korean_font_path": "./font/GmarketSansTTFLight.ttf",
+        "japanese_font_path": "./font/NotoSansCJKjp-Light.otf",
+        "digit_font_path": "./font/Lato-Light.ttf",
+        "out_font_filename": "YonhwaMagazineSans-Light.ttf",
+        "out_style_name": "Light",
+        "legacy_style_name": "Light",
+        "out_ps_name": "Yonhwa Magazine Sans Light",
+    },
 ]
 
 PRESERVE_DIGITS = False # If True, digits are not overwritten with Lato.
