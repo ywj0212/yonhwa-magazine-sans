@@ -5,7 +5,7 @@ Styles: Light, Medium, Bold
 
 ## License
 Yonhwa Magazine Sans is licensed under the SIL Open Font License, Version 1.1 (OFL-1.1).
-See `LICENSE`. For practical distribution notes, see `OFL_USAGE.txt`.
+See `LICENSE`. For practical distribution notes, see `OFL_USAGE.md`.
 
 ## Third-party components
 This font is a composite/derivative work that incorporates and/or is based on:
