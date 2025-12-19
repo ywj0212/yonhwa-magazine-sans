@@ -98,11 +98,11 @@ ALWAYS_ON_EXTRA_SUFFIX = []
 ALWAYS_ON_FEATURE_TAGS = ["case"]
 
 # Baseline tweaks (percent of UPM; positive moves glyphs upward).
-# math symbols: − + ÷ ± × = ≠ ≈ ~ < > ≤ ≥ (excluding *)
+# math symbols: − + ÷ ± × = ≠ ≈ ~ < > ≤ ≥ ∓ ∞ √ ∑ ∫ ∂ (excluding *)
 CASE_MATH_BASELINE_OFFSET = 7.78
 # halfwidth brackets / quotes: () <> {} [] « » ‹ ›
 CASE_BRACKET_BASELINE_OFFSET = 7.78
-# dashes/hyphens & arrows: - – — → ← ⟶ ⟵ ⟺
+# dashes/hyphens & arrows: - ‐ – — → ← ↕ ⟶ ⟵ ⟺ ⇐ ⇒
 CASE_DASH_ARROW_BASELINE_OFFSET = 5.8
 
 # Codepoints to refresh from the base font to fix bad outlines/widths.
