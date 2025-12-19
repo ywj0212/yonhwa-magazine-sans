@@ -15,7 +15,7 @@ from unicode_ranges import (
 OUTPUT_DIR = "dist"
 
 OUT_FAMILY_NAME = "Yonhwa Magazine Sans"
-OUT_VERSION_STR = "Version 25w51a"
+OUT_VERSION_STR = "25w51d"
 FONT_VARIANTS = [
     {
         "base_font_path": "./font/Pretendard-Medium.otf",
@@ -61,6 +61,10 @@ SCALE_KO_X = 0.94 * 0.94
 SCALE_KO_Y = 0.94
 BASELINE_KO_PCT = 5.5
 
+SCALE_ENCLOSED_X = SCALE_KO_X * 0.8957
+SCALE_ENCLOSED_Y = SCALE_KO_Y * 0.8957
+BASELINE_ENCLOSED_PCT = 10
+
 SCALE_JP_X = 0.9375 * 0.96
 SCALE_JP_Y = 0.9375
 
@@ -86,14 +90,33 @@ JP_EXTRA_SET = build_jp_extra_set(JP_EXTRA_GLYPHS_EXACT)
 # =========================
 # Advanced settings
 # =========================
-ALWAYS_ON_SS = ["ss01", "ss02", "ss03", "ss05"]
-ALWAYS_ON_SWASH = True
+ALWAYS_ON_SS = ["ss01", "ss02", "ss03", "ss06", "ss08"]
+ALWAYS_ON_SWASH = False
 ALWAYS_ON_SLASH_ZERO = True
-ALWAYS_ON_EXTRA_SUFFIX = ["salt"]
-REMOVE_GSUB_FEATURES = set(ALWAYS_ON_SS + ALWAYS_ON_EXTRA_SUFFIX + (["swsh"] if ALWAYS_ON_SWASH else []))
+ALWAYS_ON_EXTRA_SUFFIX = []
+# OpenType feature tags to force-apply and bake (e.g., jp04 = JIS2004).
+ALWAYS_ON_FEATURE_TAGS = ["case"]
+
+# Baseline tweaks (percent of UPM; positive moves glyphs upward).
+# math symbols: − + ÷ ± × = ≠ ≈ ~ < > ≤ ≥ (excluding *)
+CASE_MATH_BASELINE_OFFSET = 7.78
+# halfwidth brackets / quotes: () <> {} [] « » ‹ ›
+CASE_BRACKET_BASELINE_OFFSET = 7.78
+# dashes/hyphens & arrows: - – — → ← ⟶ ⟵ ⟺
+CASE_DASH_ARROW_BASELINE_OFFSET = 5.8
+
+# Codepoints to refresh from the base font to fix bad outlines/widths.
+QUOTE_FIX_CODEPOINTS = [0x2018, 0x2019, 0x201C, 0x201D]
+
+REMOVE_GSUB_FEATURES = set(
+    ALWAYS_ON_SS
+    + ALWAYS_ON_EXTRA_SUFFIX
+    + ALWAYS_ON_FEATURE_TAGS
+    + (["swsh"] if ALWAYS_ON_SWASH else [])
+)
 
 SILENCE_FONTFORGE_WARNINGS = True
-PROGRESS_EVERY = 2000
+PROGRESS_EVERY = 100
 GC_EVERY = 4000
 
 NORMALIZE_ANCHORS = True  # Reduce anchor/marker warning(removes anchor)
