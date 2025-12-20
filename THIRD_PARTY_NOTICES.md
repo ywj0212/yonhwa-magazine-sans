@@ -1,4 +1,4 @@
-# Third-Party Notices — Yonhwa Magazine Sans (25w51a)
+# Third-Party Notices — Yonhwa Magazine Sans (25w51e)
 
 This distribution includes or is derived from the following third-party font software.
 All listed fonts are distributed under the SIL Open Font License, Version 1.1 (OFL-1.1).

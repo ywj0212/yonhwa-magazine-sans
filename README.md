@@ -15,7 +15,7 @@ Composite CJK/Latin/Korean/Japanese font built from multiple upstream sources. C
 
 ## How to build
 ```bash
-./run.sh   # activates venv, runs FontForge with main.py
+./run.sh   # activates venv, runs FontForge with main.py (works on MacOS, Linux)
 ```
 Outputs land in `dist/` as:
 - `YonhwaMagazineSans-<Style>-<OUT_VERSION_STR>.ttf`
@@ -27,6 +27,7 @@ Outputs land in `dist/` as:
 - `FONT_VARIANTS`: per-style source paths and names (base/korean/japanese/digit fonts, output names).
 - Scaling & baselines: `SCALE_BASE_*`, `SCALE_KO_*`, `BASELINE_KO_PCT`, `SCALE_ENCLOSED_*`, `BASELINE_ENCLOSED_PCT`, `SCALE_JP_*`, `SCALE_DIGIT_*`.
 - Alternates: `ALWAYS_ON_FEATURE_TAGS`, `ALWAYS_ON_SS`, `ALWAYS_ON_EXTRA_SUFFIX`, `ALWAYS_ON_SWASH`, `ALWAYS_ON_SLASH_ZERO`, `QUOTE_FIX_CODEPOINTS`.
+- GSUB protection: `GSUB_PROTECT_RANGES` (ranges that must not be overwritten by baked features).
 - Baseline tweaks: `CASE_MATH_BASELINE_OFFSET`, `CASE_BRACKET_BASELINE_OFFSET`, `CASE_DASH_ARROW_BASELINE_OFFSET` (percent of UPM).
 - JP extras/whitelist: `JP_EXTRA_SET`, `JP_EXTRA_OVERWRITE`.
 - Output: `OUT_FAMILY_NAME`, `OUT_VERSION_STR`, `OUTPUT_DIR`.
@@ -48,4 +49,4 @@ Outputs land in `dist/` as:
 - Gmarket Sans
 - Pretendard
 
-See `THIRD_PARTY_NOTICES` for notices and `LICENSE`/`OFL_USAGE.md` for usage guidance. Yonhwa Magazine Sans is not endorsed by upstream authors; Reserved Font Names are not used as the primary name.***
+See `THIRD_PARTY_NOTICES` for notices and `LICENSE`/`OFL_USAGE.md` for usage guidance. Yonhwa Magazine Sans is not endorsed by upstream authors; Reserved Font Names are not used as the primary name.
