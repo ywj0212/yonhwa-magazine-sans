@@ -17,7 +17,11 @@ Composite CJK/Latin/Korean/Japanese font built from multiple upstream sources. C
 ```bash
 ./run.sh   # activates venv, runs FontForge with main.py
 ```
-Outputs land in `dist/` as `YonhwaMagazineSans-<Style>-<OUT_VERSION_STR>.ttf`.
+Outputs land in `dist/` as:
+- `YonhwaMagazineSans-<Style>-<OUT_VERSION_STR>.ttf`
+- `YonhwaMagazineSans-<Style>-<OUT_VERSION_STR>.woff`
+- `YonhwaMagazineSans-<Style>-<OUT_VERSION_STR>.woff2`
+- A TTC bundle `YonhwaMagazineSans-<OUT_VERSION_STR>.ttc` (all styles)
 
 ## Configuration (`config.py`)
 - `FONT_VARIANTS`: per-style source paths and names (base/korean/japanese/digit fonts, output names).

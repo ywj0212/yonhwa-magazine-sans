@@ -1,10 +1,11 @@
 """Build orchestration for Yonhwa Magazine Sans."""
 
-from typing import Dict
+from typing import Dict, List
 import os
 import time
 
 import fontforge  # type: ignore
+from fontTools.ttLib import TTFont  # type: ignore
 
 import config as cfg
 from cid import build_cid_name_index, find_slot
@@ -19,7 +20,7 @@ from features import (
     remove_gsub_lookups_by_feature_tags,
 )
 from geometry import bake, has_glyph, transform_entire_font
-from font_io import open_font, set_names, suppress_stderr
+from font_io import open_font, set_names, suppress_stderr, ps_sanitize
 from ranges import in_any, iter_ranges
 
 
@@ -50,6 +51,88 @@ def maybe_gc(i: int) -> None:
         fontforge.garbageCollect()
     except Exception:
         pass
+
+
+GENERATED_TTF: List[str] = []
+
+
+def generate_additional_formats(base, out_path: str) -> Dict[str, str]:
+    """Generate WOFF/WOFF2 alongside the main TTF."""
+    made: Dict[str, str] = {}
+    base_dir, base_file = os.path.split(out_path)
+    root, _ = os.path.splitext(base_file)
+    woff_path = os.path.join(base_dir, f"{root}.woff")
+    woff2_path = os.path.join(base_dir, f"{root}.woff2")
+    try:
+        with suppress_stderr(cfg.SILENCE_FONTFORGE_WARNINGS):
+            base.generate(woff_path)
+        made["woff"] = woff_path
+    except Exception:
+        pass
+    try:
+        with suppress_stderr(cfg.SILENCE_FONTFORGE_WARNINGS):
+            base.generate(woff2_path)
+        made["woff2"] = woff2_path
+    except Exception:
+        pass
+    return made
+
+
+def generate_ttc_bundle(ttf_paths: List[str]) -> str:
+    """Generate a TTC from the built TTFs (one per variant)."""
+    existing = [p for p in ttf_paths if p and os.path.isfile(p)]
+    if len(existing) < 2:
+        return ""
+
+    ps_name = ps_sanitize(cfg.OUT_FAMILY_NAME)
+    out_path = os.path.abspath(os.path.join(cfg.OUTPUT_DIR, f"{ps_name}-{cfg.OUT_VERSION_STR}.ttc"))
+    if hasattr(fontforge, "generateTtc"):
+        fonts = []
+        for p in existing:
+            try:
+                f = open_font(p, flatten_cid=False)
+                fonts.append(f)
+            except Exception:
+                continue
+
+        if len(fonts) < 2:
+            for f in fonts:
+                try:
+                    f.close()
+                except Exception:
+                    pass
+            return ""
+
+        try:
+            with suppress_stderr(cfg.SILENCE_FONTFORGE_WARNINGS):
+                fontforge.generateTtc(out_path, fonts)
+        except Exception:
+            out_path = ""
+
+        for f in fonts:
+            try:
+                f.close()
+            except Exception:
+                pass
+        if out_path:
+            return out_path
+        # fall through to fontTools fallback on failure
+
+    # Fallback: use fontTools to write a TTC.
+    try:
+        tt_objs = [TTFont(p) for p in existing]
+        from fontTools.ttLib.ttCollection import TTCollection  # type: ignore
+        coll = TTCollection()
+        coll.fonts = tt_objs
+        coll.save(out_path)
+        for obj in tt_objs:
+            try:
+                obj.close()
+            except Exception:
+                pass
+        return out_path
+    except Exception:
+        return ""
 
 
 def build_one(variant: Dict[str, str]) -> None:
@@ -259,12 +342,16 @@ def build_one(variant: Dict[str, str]) -> None:
     base_name, ext = os.path.splitext(variant["out_font_filename"])
     ext = ext or ".ttf"
     versioned_name = f"{base_name}-{cfg.OUT_VERSION_STR}{ext}"
-    out_path = os.path.join(cfg.OUTPUT_DIR, versioned_name)
+    out_path = os.path.abspath(os.path.join(cfg.OUTPUT_DIR, versioned_name))
     t = now()
     with suppress_stderr(cfg.SILENCE_FONTFORGE_WARNINGS):
         base.generate(out_path)
+    extras = generate_additional_formats(base, out_path)
     base.close()
+    GENERATED_TTF.append(out_path)
     print(f"[8 generate] elapsed={now()-t:.2f}s", flush=True)
+    if extras:
+        print(f"[8 generate] extras={extras}", flush=True)
     print(f"DONE: {out_path} total={now()-t_all:.2f}s", flush=True)
 
 
@@ -274,3 +361,10 @@ def build_all() -> None:
     for variant in cfg.FONT_VARIANTS:
         build_one(variant)
         print()
+
+    t = now()
+    ttc_path = generate_ttc_bundle(GENERATED_TTF)
+    if ttc_path:
+        print(f"[9 ttc] generated {ttc_path} (fonts={len(GENERATED_TTF)}) elapsed={now()-t:.2f}s", flush=True)
+    else:
+        print(f"[9 ttc] skipped (not enough fonts or generation failed) fonts_seen={len(GENERATED_TTF)}", flush=True)
