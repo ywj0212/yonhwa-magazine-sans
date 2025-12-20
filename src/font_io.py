@@ -41,7 +41,11 @@ def ps_sanitize(name: str) -> str:
 
 
 def open_font(path: str, flatten_cid: bool = False):
-    """Open a font file and normalize encoding where safe."""
+    """Open a font file and normalize encoding where safe.
+
+    flatten_cid is accepted for API compatibility; CID handling relies on
+    FontForge's native open behavior.
+    """
     with suppress_stderr(cfg.SILENCE_FONTFORGE_WARNINGS):
         f = fontforge.open(path, ("hidewindow", "alltables"))
     try:

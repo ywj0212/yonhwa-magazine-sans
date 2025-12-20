@@ -1,4 +1,4 @@
-"""CID subfont helpers and slot resolution."""
+"""CID subfont helpers and encoding slot resolution."""
 
 from typing import Dict, List, Optional, Tuple
 
@@ -9,7 +9,7 @@ _CID_SLOT_CACHE: Dict[int, Dict[int, Dict[int, int]]] = {}
 
 
 def _cid_slot_map(font, subidx: int) -> Dict[int, int]:
-    """Return a unicode→encoding map for a CID subfont (cached to avoid segfaults)."""
+    """Build a unicode→encoding map for a CID subfont (cached per font/subfont)."""
     fid = id(font)
     submaps: Optional[Dict[int, Dict[int, int]]] = _CID_SLOT_CACHE.get(fid)
     if submaps is None:
@@ -78,7 +78,7 @@ def find_slot(font, u: int) -> int:
 
 
 def get_cid_subfont_names(font) -> List[Tuple[int, str]]:
-    """Return list of (index, name) for a CID font's subfonts."""
+    """Return (index, name) entries for a CID font's subfonts."""
     try:
         cnt = int(getattr(font, "cidsubfontcnt", 0) or 0)
     except Exception:
@@ -118,7 +118,7 @@ def get_cid_subfont_names(font) -> List[Tuple[int, str]]:
 
 
 def build_cid_name_index(font) -> Dict[str, int]:
-    """Build a name->index lookup for CID subfonts."""
+    """Build a name→index lookup for CID subfonts."""
     idx: Dict[str, int] = {}
     for i, n in get_cid_subfont_names(font):
         idx[n] = i
@@ -126,7 +126,7 @@ def build_cid_name_index(font) -> Dict[str, int]:
 
 
 def pick_cid_indices_by_patterns(name_index: Dict[str, int], patterns: List[str]) -> List[int]:
-    """Pick subfont indices whose names contain any pattern."""
+    """Return subfont indices whose names contain any pattern."""
     out: List[int] = []
     for pat in patterns:
         for name, i in name_index.items():
@@ -143,7 +143,7 @@ def pick_cid_indices_by_patterns(name_index: Dict[str, int], patterns: List[str]
 
 
 def cid_preferred_indices(name_index: Dict[str, int], u: int) -> Tuple[List[int], bool]:
-    """Return (preferred_indices, only_preferred) for this codepoint category."""
+    """Return preferred subfont indices for a given codepoint."""
     if 0xFF65 <= u <= 0xFF9F:
         return pick_cid_indices_by_patterns(name_index, ["HWidth", "HKana", "Kana", "Generic"]), False
     if in_any(u, cfg.KANA_RANGES):

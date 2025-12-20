@@ -2,8 +2,8 @@
 
 Notes:
 - All ranges are inclusive.
-- Code is grouped by script/usage so callers can include what they need.
-- Comments explicitly spell out what each block covers to avoid guesswork.
+- Ranges are grouped by script/usage so callers can pick what they need.
+- Comments call out what each block covers for easy maintenance.
 """
 
 import unicodedata
@@ -41,8 +41,7 @@ KANA_RANGES = [
     (0x1B130, 0x1B16F),
 ]
 
-# CJK unified ideographs (keep as many as FontForge and source fonts support).
-# Includes BMP, compatibility, and extensions B–I plus compatibility supplement.
+# CJK ideographs (BMP, compatibility, and extensions B–I + supplement).
 CJK_IDEOGRAPH_RANGES = [
     (0x3400, 0x4DBF),   # Extension A (BMP)
     (0x4E00, 0x9FFF),   # Unified ideographs (BMP)

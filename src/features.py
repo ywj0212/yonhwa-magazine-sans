@@ -1,4 +1,4 @@
-"""GSUB baking, baseline tweaks, and glyph refresh helpers."""
+"""GSUB baking, baseline adjustments, and glyph refresh helpers."""
 
 from typing import Dict, List, Sequence, Set, Tuple
 
@@ -14,7 +14,7 @@ from glyph_copy import copy_from_src
 
 
 def overwrite_outline_same_font(font, dst_g, src_g) -> None:
-    """Overwrite a glyph's outline with another glyph in the same font."""
+    """Replace a glyph outline from another glyph in the same font."""
     keep_u = dst_g.unicode
     keep_w = dst_g.width
     dst_g.clear()
@@ -34,7 +34,7 @@ def overwrite_outline_same_font(font, dst_g, src_g) -> None:
 
 
 def bake_single_glyph_alternates(dst_font) -> Tuple[int, int]:
-    """Bake stylistic/swash/salt alternates into base glyphs and drop lookups."""
+    """Bake always-on alternates into base glyphs using coverage/suffix rules."""
     always_tags = set(
         cfg.ALWAYS_ON_SS
         + cfg.ALWAYS_ON_EXTRA_SUFFIX
@@ -82,7 +82,12 @@ def bake_single_glyph_alternates(dst_font) -> Tuple[int, int]:
                     u = int(getattr(base_g, "unicode", -1) or -1)
                 except Exception:
                     u = -1
-                if u != -1 and ((u in DASH_PROTECT) or (u in BRACKET_PROTECT) or in_any(u, cfg.DIGIT_RANGES)):
+                if u != -1 and (
+                    (u in DASH_PROTECT)
+                    or (u in BRACKET_PROTECT)
+                    or in_any(u, cfg.GSUB_PROTECT_RANGES)
+                    or in_any(u, cfg.DIGIT_RANGES)
+                ):
                     continue
                 if worth(alt_g):
                     overwrite_outline_same_font(dst_font, base_g, alt_g)
@@ -107,7 +112,7 @@ def bake_single_glyph_alternates(dst_font) -> Tuple[int, int]:
     for g in dst_font.glyphs():
         if not worth(g) or g.unicode == -1:
             continue
-        if in_any(int(g.unicode), cfg.DIGIT_RANGES):
+        if in_any(int(g.unicode), cfg.DIGIT_RANGES) or in_any(int(g.unicode), cfg.GSUB_PROTECT_RANGES):
             continue
         base_name = getattr(g, "glyphname", None) or getattr(g, "name", "")
         if not base_name:
@@ -262,21 +267,11 @@ def bake_feature_substitutions(
     total = len(list(dst_font.glyphs()))
 
     def pick(name: str):
+        # Prefer direct glyph names, fall back to Unicode slots via cmap.
         try:
             return dst_font[name]
         except Exception:
             pass
-        idx = name_to_idx.get(name)
-        if idx is None and name.lower().startswith("cid"):
-            try:
-                idx = int(name[3:])
-            except Exception:
-                idx = None
-        if idx is not None and 0 <= idx < total:
-            try:
-                return dst_font[idx]
-            except Exception:
-                pass
         uni = name_to_uni.get(name)
         if uni is not None:
             slot = find_slot(dst_font, uni)
@@ -296,7 +291,12 @@ def bake_feature_substitutions(
             u = int(getattr(base_g, "unicode", -1) or -1)
         except Exception:
             u = -1
-        if u != -1 and ((u in DASH_PROTECT) or (u in BRACKET_PROTECT) or in_any(u, cfg.DIGIT_RANGES)):
+        if u != -1 and (
+            (u in DASH_PROTECT)
+            or (u in BRACKET_PROTECT)
+            or in_any(u, cfg.GSUB_PROTECT_RANGES)
+            or in_any(u, cfg.DIGIT_RANGES)
+        ):
             continue
         if worth(alt_g):
             overwrite_outline_same_font(dst_font, base_g, alt_g)
@@ -385,7 +385,7 @@ def apply_case_baseline_offsets(font, base_upm: int, math_pct: float, bracket_pc
 
 
 def refresh_quote_glyphs(dst_font, src_font_path: str, codepoints: List[int]) -> int:
-    """Re-copy specific quote glyphs from the source base font."""
+    """Re-copy specific quote glyphs from the base font."""
     if not codepoints:
         return 0
     try:

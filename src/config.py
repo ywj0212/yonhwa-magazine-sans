@@ -10,12 +10,12 @@ from unicode_ranges import (
 )
 
 # =========================
-# USER CONFIG (edit here)
+# User-facing config (edit here)
 # =========================
 OUTPUT_DIR = "dist"
 
 OUT_FAMILY_NAME = "Yonhwa Magazine Sans"
-OUT_VERSION_STR = "25w51d"
+OUT_VERSION_STR = "25w51e"
 FONT_VARIANTS = [
     {
         "base_font_path": "./src/font/Pretendard-Medium.otf",
@@ -49,7 +49,8 @@ FONT_VARIANTS = [
     },
 ]
 
-PRESERVE_DIGITS = False # If True, digits are not overwritten with Lato.
+# If True, keep the base font's digits instead of overwriting with Lato.
+PRESERVE_DIGITS = False
 
 SCALE_BASE_X = 0.96
 SCALE_BASE_Y = 1.00
@@ -68,8 +69,9 @@ BASELINE_ENCLOSED_PCT = 10
 SCALE_JP_X = 0.9375 * 0.96
 SCALE_JP_Y = 0.9375
 
-# === JP extra glyphs (Noto Sans CJK JP) ===
-JP_EXTRA_OVERWRITE = False  # If True, forcefully overwrite with Noto Sans CJK JP
+# === JP extra glyph whitelist (Noto Sans CJK JP) ===
+# If True, forcefully overwrite the base even when a glyph already exists.
+JP_EXTRA_OVERWRITE = False
 JP_EXTRA_GLYPHS_EXACT = (
     "㈱㈲㍿㍑㌔㌢㌦㌧㌫"
     "｡｢｣､"
@@ -84,6 +86,14 @@ JP_EXTRA_GLYPHS_EXACT = (
     "░▒▓█▁▂▃▄▅▆▇▉▊▋▌▍▎▏"
     "⤴⤵"
     "∓≡"
+    "⇄⇆⇋⇌"
+    "∩∪∴∵∝∟∠∃∀"
+    "▫♤♧♢♡"
+    "⊕⊗⊙⊠⊥⊖⊘"
+    "┌┍┎┏┐┑┒┓└┕┖┗┘┙┚┛├┝┞┟┤┥┦┧"
+    "┬┭┮┯┰┱┲┳┴┵┶┷┸┹┺┻┼┽┾┿╀╁╂╃╄╅╆╇╈╉╊╋"
+    "▣▤▥▦▧▨▩▱✂"
+    "ᆞᆢ"
 )
 JP_EXTRA_SET = build_jp_extra_set(JP_EXTRA_GLYPHS_EXACT)
 
@@ -94,8 +104,20 @@ ALWAYS_ON_SS = ["ss01", "ss02", "ss03", "ss06", "ss08"]
 ALWAYS_ON_SWASH = False
 ALWAYS_ON_SLASH_ZERO = True
 ALWAYS_ON_EXTRA_SUFFIX = []
-# OpenType feature tags to force-apply and bake (e.g., jp04 = JIS2004).
+# OpenType feature tags to bake into base glyphs (e.g., jp04 = JIS2004).
 ALWAYS_ON_FEATURE_TAGS = ["case"]
+# Codepoint ranges that must never be overwritten by GSUB baking.
+GSUB_PROTECT_RANGES = [
+    (0x0020, 0x007E),  # Basic Latin
+    (0x00A0, 0x00FF),  # Latin-1 Supplement
+    (0x0100, 0x017F),  # Latin Extended-A
+    (0x0180, 0x024F),  # Latin Extended-B
+    (0x1E00, 0x1EFF),  # Latin Extended Additional
+    (0x2000, 0x206F),  # General Punctuation (e.g., ‰)
+    (0x20A0, 0x20CF),  # Currency Symbols
+    (0x2100, 0x214F),  # Letterlike Symbols
+    (0x2150, 0x218F),  # Number Forms (Roman numerals)
+]
 
 # Baseline tweaks (percent of UPM; positive moves glyphs upward).
 # math symbols: − + ÷ ± × = ≠ ≈ ~ < > ≤ ≥ ∓ ∞ √ ∑ ∫ ∂ (excluding *)
@@ -119,4 +141,5 @@ SILENCE_FONTFORGE_WARNINGS = True
 PROGRESS_EVERY = 100
 GC_EVERY = 4000
 
-NORMALIZE_ANCHORS = True  # Reduce anchor/marker warning(removes anchor)
+# Drop anchors to avoid noisy FontForge warnings during copy/paste.
+NORMALIZE_ANCHORS = True

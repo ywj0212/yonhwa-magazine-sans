@@ -1,4 +1,4 @@
-"""Glyph copy helpers and JP clearing."""
+"""Glyph copy helpers and JP cleanup."""
 
 from typing import Dict, Optional, Tuple
 
@@ -10,7 +10,7 @@ from ranges import in_any, iter_ranges, jp_allowed
 
 
 def clear_anchors_if_needed(g) -> None:
-    """Drop anchors on a glyph when normalization is enabled."""
+    """Drop anchors on a glyph when anchor normalization is enabled."""
     if not cfg.NORMALIZE_ANCHORS:
         return
     try:
@@ -124,7 +124,7 @@ def strip_altuni_entries(g, should_remove_u) -> None:
 
 
 def remove_base_jp_coverage_and_clear(base_font) -> Tuple[int, int]:
-    """Remove JP mappings from the base font and clear JP outlines."""
+    """Remove JP unicode/altuni mappings and clear JP outlines from the base."""
     removed_map = 0
     cleared = 0
 

@@ -116,7 +116,7 @@ def generate_ttc_bundle(ttf_paths: List[str]) -> str:
                 pass
         if out_path:
             return out_path
-        # fall through to fontTools fallback on failure
+        # If FontForge TTC generation fails, fall back to fontTools.
 
     # Fallback: use fontTools to write a TTC.
     try:
@@ -155,12 +155,12 @@ def build_one(variant: Dict[str, str]) -> None:
     enclosed_pre_x = cfg.SCALE_ENCLOSED_X / cfg.SCALE_BASE_X
     enclosed_pre_y = cfg.SCALE_ENCLOSED_Y / cfg.SCALE_BASE_Y
 
-    # [0] Remove JP coverage from base.
+    # [0] Clear JP coverage in the base font.
     t = now()
     rm_map, cleared = remove_base_jp_coverage_and_clear(base)
     print(f"[0 base JP] removed_map={rm_map} cleared_slots={cleared} elapsed={now()-t:.2f}s", flush=True)
 
-    # [1] Digits (optional override).
+    # [1] Override digits from Lato (optional).
     if cfg.PRESERVE_DIGITS:
         print("[1 digits] skipped!", flush=True)
     else:
@@ -168,7 +168,11 @@ def build_one(variant: Dict[str, str]) -> None:
         lato = open_font(variant["digit_font_path"])
         lato_upm = int(lato.em)
 
-        digits = [u for u in iter_ranges(cfg.DIGIT_RANGES)]
+        digits = [
+            u
+            for u in iter_ranges(cfg.DIGIT_RANGES)
+            if not (0x2070 <= u <= 0x2079 or 0x2080 <= u <= 0x2089)
+        ]
         total = len(digits)
         for i, u in enumerate(digits, 1):
             sw = copy_from_src(lato, base, u, cid_name_index=None)
@@ -197,7 +201,7 @@ def build_one(variant: Dict[str, str]) -> None:
 
         print(f"\n[1 digits] elapsed={now()-t:.2f}s", flush=True)
 
-    # [2] Korean (Hangul) and enclosed glyphs.
+    # [2] Replace Hangul and enclosed glyphs (Gmarket Sans).
     t = now()
     ko = open_font(variant["korean_font_path"])
     ko_upm = int(ko.em)
@@ -233,7 +237,7 @@ def build_one(variant: Dict[str, str]) -> None:
     ko.close()
     print(f"\n[2 korean] elapsed={now()-t:.2f}s", flush=True)
 
-    # [3] Japanese (CID pick by subfont).
+    # [3] Replace JP/CJK ranges (CID-aware).
     t = now()
     jp = open_font(variant["japanese_font_path"])
     jp_upm = int(jp.em)
@@ -282,7 +286,7 @@ def build_one(variant: Dict[str, str]) -> None:
     jp.close()
     print(f"[3 jp extra] filled={filled_extra} (whitelist)", flush=True)
 
-    # [4] Alternates and GSUB cleanup.
+    # [4] Bake always-on alternates and remove GSUB lookups.
     t = now()
     target_tags = set(cfg.ALWAYS_ON_FEATURE_TAGS + cfg.ALWAYS_ON_SS + cfg.ALWAYS_ON_EXTRA_SUFFIX)
     if cfg.ALWAYS_ON_SWASH:
@@ -309,7 +313,7 @@ def build_one(variant: Dict[str, str]) -> None:
     else:
         print(f"[4 alternates] GSUB all target tags found", flush=True)
 
-    # [5] Manual baseline tweaks for math symbols / brackets.
+    # [5] Apply baseline tweaks for math/brackets/dashes.
     t = now()
     applied_offsets = apply_case_baseline_offsets(
         base,
@@ -323,12 +327,12 @@ def build_one(variant: Dict[str, str]) -> None:
         flush=True,
     )
 
-    # [6] Fix curly quote glyphs by recopying from the base font.
+    # [6] Refresh curly quotes from the base font.
     t = now()
     refreshed = refresh_quote_glyphs(base, variant["base_font_path"], cfg.QUOTE_FIX_CODEPOINTS)
     print(f"[6 quotes] refreshed={refreshed} elapsed={now()-t:.2f}s", flush=True)
 
-    # [7] Global base scale (including GPOS/kern data).
+    # [7] Apply global base scaling (including positioning tables).
     t = now()
     transform_entire_font(base, cfg.SCALE_BASE_X, cfg.SCALE_BASE_Y)
     print(f"[7 global scale] elapsed={now()-t:.2f}s", flush=True)
