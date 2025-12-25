@@ -197,62 +197,68 @@ def load_feature_substitutions(tt_path: str, target_tags: Set[str]):
         tt = TTFont(tt_path)
     except Exception:
         return [], set(), {}, {}, {}
-    if "GSUB" not in tt:
-        return [], set(), {}, {}, {}
-
-    gsub = tt["GSUB"].table
-    feat_records = gsub.FeatureList.FeatureRecord if gsub.FeatureList else []
-    present_tags = {fr.FeatureTag for fr in feat_records}
-    glyph_order = tt.getGlyphOrder()
-    name_to_idx = {n: i for i, n in enumerate(glyph_order)}
-    name_to_uni: Dict[str, int] = {}
     try:
-        cmap = tt.getBestCmap() or {}
-        for uni, gname in cmap.items():
-            name_to_uni.setdefault(gname, int(uni))
-    except Exception:
-        pass
+        if "GSUB" not in tt:
+            return [], set(), {}, {}, {}
 
-    tag_to_lookups = {}
-    for idx, fr in enumerate(feat_records):
-        tag = fr.FeatureTag
-        if tag not in target_tags:
-            continue
-        lookups = fr.Feature.LookupListIndex
-        tag_to_lookups.setdefault(tag, []).extend(lookups)
+        gsub = tt["GSUB"].table
+        feat_records = gsub.FeatureList.FeatureRecord if gsub.FeatureList else []
+        present_tags = {fr.FeatureTag for fr in feat_records}
+        glyph_order = tt.getGlyphOrder()
+        name_to_idx = {n: i for i, n in enumerate(glyph_order)}
+        name_to_uni: Dict[str, int] = {}
+        try:
+            cmap = tt.getBestCmap() or {}
+            for uni, gname in cmap.items():
+                name_to_uni.setdefault(gname, int(uni))
+        except Exception:
+            pass
 
-    if not tag_to_lookups:
-        return [], present_tags, {}, name_to_idx, name_to_uni
-
-    subs: List[Tuple[str, str, str]] = []
-    per_tag_counts = {tag: 0 for tag in tag_to_lookups}
-    lookup_list = gsub.LookupList.Lookup if gsub.LookupList else []
-    for tag, lks in tag_to_lookups.items():
-        for lk_idx in lks:
-            if lk_idx >= len(lookup_list):
+        tag_to_lookups = {}
+        for fr in feat_records:
+            tag = fr.FeatureTag
+            if tag not in target_tags:
                 continue
-            lk = lookup_list[lk_idx]
-            lt = lk.LookupType
-            if lt == 1:
-                for st in lk.SubTable:
-                    try:
-                        mapping = st.mapping
-                    except Exception:
-                        continue
-                    for src, dst in mapping.items():
-                        subs.append((src, dst, tag))
-                        per_tag_counts[tag] = per_tag_counts.get(tag, 0) + 1
-            elif lt == 3:
-                for st in lk.SubTable:
-                    try:
-                        alts = st.alternates
-                    except Exception:
-                        continue
-                    for src, dst_list in alts.items():
-                        if dst_list:
-                            subs.append((src, dst_list[0], tag))
+            lookups = fr.Feature.LookupListIndex
+            tag_to_lookups.setdefault(tag, []).extend(lookups)
+
+        if not tag_to_lookups:
+            return [], present_tags, {}, name_to_idx, name_to_uni
+
+        subs: List[Tuple[str, str, str]] = []
+        per_tag_counts = {tag: 0 for tag in tag_to_lookups}
+        lookup_list = gsub.LookupList.Lookup if gsub.LookupList else []
+        for tag, lks in tag_to_lookups.items():
+            for lk_idx in lks:
+                if lk_idx >= len(lookup_list):
+                    continue
+                lk = lookup_list[lk_idx]
+                lt = lk.LookupType
+                if lt == 1:
+                    for st in lk.SubTable:
+                        try:
+                            mapping = st.mapping
+                        except Exception:
+                            continue
+                        for src, dst in mapping.items():
+                            subs.append((src, dst, tag))
                             per_tag_counts[tag] = per_tag_counts.get(tag, 0) + 1
-    return subs, present_tags, per_tag_counts, name_to_idx, name_to_uni
+                elif lt == 3:
+                    for st in lk.SubTable:
+                        try:
+                            alts = st.alternates
+                        except Exception:
+                            continue
+                        for src, dst_list in alts.items():
+                            if dst_list:
+                                subs.append((src, dst_list[0], tag))
+                                per_tag_counts[tag] = per_tag_counts.get(tag, 0) + 1
+        return subs, present_tags, per_tag_counts, name_to_idx, name_to_uni
+    finally:
+        try:
+            tt.close()
+        except Exception:
+            pass
 
 
 def bake_feature_substitutions(
@@ -308,7 +314,7 @@ def bake_feature_substitutions(
 MATH_CASE_CODEPOINTS = [
     0x2212, 0x002B, 0x00F7, 0x00B1, 0x00D7,
     0x003D, 0x2260, 0x2248, 0x007E,
-    0x003C, 0x003E, 0x2264, 0x2265,
+    0x2264, 0x2265,
     0x2213,  # minus-or-plus
     0x221E,  # infinity
     0x221A,  # square root

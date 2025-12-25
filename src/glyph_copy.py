@@ -1,9 +1,10 @@
 """Glyph copy helpers and JP cleanup."""
 
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Set
 
 import config as cfg
 from cid import find_slot, resolve_src_slot_cid
+from map_log import log_issue
 from geometry import worth
 from font_io import suppress_stderr
 from ranges import in_any, iter_ranges, jp_allowed
@@ -19,13 +20,28 @@ def clear_anchors_if_needed(g) -> None:
         pass
 
 
-def copy_from_src(src_font, dst_font, u: int, cid_name_index: Optional[Dict[str, int]] = None) -> Optional[int]:
+def copy_from_src(
+    src_font,
+    dst_font,
+    u: int,
+    cid_name_index: Optional[Dict[str, int]] = None,
+    cid_unicode_map: Optional[Dict[int, int]] = None,
+    unicode_name_map: Optional[Dict[int, str]] = None,
+) -> Optional[int]:
     """Copy glyph u from src to dst; return source width if copied."""
-    ref = resolve_src_slot_cid(src_font, u, cid_name_index) if cid_name_index is not None else (None, find_slot(src_font, u))
+    ref = (
+        resolve_src_slot_cid(src_font, u, cid_name_index, cid_unicode_map, unicode_name_map)
+        if cid_name_index is not None
+        else (None, find_slot(src_font, u))
+    )
     if ref is None:
+        if cid_unicode_map is not None:
+            log_issue("copy_no_ref", u)
         return None
     subidx, slot = ref
     if slot is None or slot == -1:
+        if cid_unicode_map is not None:
+            log_issue("copy_no_slot", u)
         return None
 
     saved = None
@@ -39,6 +55,8 @@ def copy_from_src(src_font, dst_font, u: int, cid_name_index: Optional[Dict[str,
     try:
         sg = src_font[int(slot)]
         if not worth(sg):
+            if cid_unicode_map is not None:
+                log_issue("copy_not_worth", u, detail=f"slot={slot}")
             if saved is not None:
                 try:
                     src_font.cidsubfont = saved
@@ -123,13 +141,21 @@ def strip_altuni_entries(g, should_remove_u) -> None:
         pass
 
 
-def remove_base_jp_coverage_and_clear(base_font) -> Tuple[int, int]:
+def remove_base_jp_coverage_and_clear(
+    base_font,
+    jp_available: Optional[Set[int]] = None,
+) -> Tuple[int, int]:
     """Remove JP unicode/altuni mappings and clear JP outlines from the base."""
     removed_map = 0
     cleared = 0
+    missing_logged: Set[int] = set()
 
     def should_remove(u: int) -> bool:
-        return in_any(u, cfg.JP_TARGET_RANGES) and jp_allowed(u)
+        if not (in_any(u, cfg.JP_TARGET_RANGES) and jp_allowed(u)):
+            return False
+        if jp_available is not None and u not in jp_available:
+            return False
+        return True
 
     scanned = 0
     for g in base_font.glyphs("encoding"):
@@ -142,12 +168,27 @@ def remove_base_jp_coverage_and_clear(base_font) -> Tuple[int, int]:
             removed_map += 1
         else:
             strip_altuni_entries(g, should_remove)
+            if (
+                u != -1
+                and jp_available is not None
+                and in_any(int(u), cfg.JP_TARGET_RANGES)
+                and jp_allowed(int(u))
+                and int(u) not in jp_available
+            ):
+                if int(u) not in missing_logged:
+                    log_issue("jp_missing_source", int(u))
+                    missing_logged.add(int(u))
 
         if (scanned % (cfg.PROGRESS_EVERY * 2)) == 0:
             print(f"\r[0] base JP unmap scanned={scanned} removed={removed_map}", flush=True, end="")
 
     for u in iter_ranges(cfg.JP_TARGET_RANGES):
         if not jp_allowed(u):
+            continue
+        if jp_available is not None and u not in jp_available:
+            if u not in missing_logged:
+                log_issue("jp_missing_source", u)
+                missing_logged.add(u)
             continue
         slot = find_slot(base_font, u)
         if slot == -1:

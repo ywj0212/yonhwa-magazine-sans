@@ -4,8 +4,11 @@ from typing import Dict, List, Optional, Tuple
 
 import config as cfg
 from ranges import in_any
+from fontTools.ttLib import TTFont
+from map_log import log_issue
 
 _CID_SLOT_CACHE: Dict[int, Dict[int, Dict[int, int]]] = {}
+_CID_PRESENT_CACHE: Dict[int, Dict[int, set[int]]] = {}
 
 
 def _cid_slot_map(font, subidx: int) -> Dict[int, int]:
@@ -54,6 +57,80 @@ def _cid_slot_map(font, subidx: int) -> Dict[int, int]:
 
     submaps[subidx] = mapping
     return mapping
+
+
+def _cid_from_glyph_name(name: str) -> Optional[int]:
+    """Extract CID value from a glyph name like cid12345 or CID+12345."""
+    if not name:
+        return None
+    if name.startswith("cid") and name[3:].isdigit():
+        return int(name[3:])
+    if name.startswith("CID+") and name[4:].isdigit():
+        return int(name[4:])
+    if name.startswith("Identity.") and name[9:].isdigit():
+        return int(name[9:])
+    return None
+
+
+def _cid_present_set(font, subidx: int) -> set[int]:
+    """Return encoding slots present in the current CID subfont (cached)."""
+    fid = id(font)
+    submaps = _CID_PRESENT_CACHE.get(fid)
+    if submaps is None:
+        submaps = {}
+        _CID_PRESENT_CACHE[fid] = submaps
+    if subidx in submaps:
+        return submaps[subidx]
+
+    present: set[int] = set()
+    try:
+        for g in font.glyphs():
+            try:
+                present.add(int(g.encoding))
+            except Exception:
+                continue
+    except Exception:
+        pass
+    submaps[subidx] = present
+    return present
+
+
+def build_cid_unicode_map(tt_path: str) -> Dict[int, int]:
+    """Build a unicode→CID map using fontTools cmap data (CID glyphs often lack unicode)."""
+    try:
+        tt = TTFont(tt_path)
+    except Exception:
+        return {}
+
+    cmap = tt.getBestCmap() or {}
+    out: Dict[int, int] = {}
+    for uni, gname in cmap.items():
+        cid = _cid_from_glyph_name(gname)
+        if cid is not None:
+            out[int(uni)] = int(cid)
+        else:
+            log_issue("cid_name_unparsed", int(uni), detail=f"name={gname}")
+
+    try:
+        tt.close()
+    except Exception:
+        pass
+    return out
+
+
+def build_unicode_name_map(tt_path: str) -> Dict[int, str]:
+    """Build a unicode→glyph-name map from fontTools cmap."""
+    try:
+        tt = TTFont(tt_path)
+    except Exception:
+        return {}
+    cmap = tt.getBestCmap() or {}
+    out = {int(uni): str(name) for uni, name in cmap.items()}
+    try:
+        tt.close()
+    except Exception:
+        pass
+    return out
 
 
 def find_slot(font, u: int) -> int:
@@ -156,20 +233,45 @@ def cid_preferred_indices(name_index: Dict[str, int], u: int) -> Tuple[List[int]
     return pick_cid_indices_by_patterns(name_index, ["Generic"]), False
 
 
-def resolve_src_slot_cid(src_font, u: int, name_index: Dict[str, int]) -> Optional[Tuple[Optional[int], int]]:
+def resolve_src_slot_cid(
+    src_font,
+    u: int,
+    name_index: Dict[str, int],
+    cid_unicode_map: Optional[Dict[int, int]] = None,
+    unicode_name_map: Optional[Dict[int, str]] = None,
+) -> Optional[Tuple[Optional[int], int]]:
     """Resolve a glyph slot in a CID font by trying preferred subfonts."""
     try:
         cnt = int(getattr(src_font, "cidsubfontcnt", 0) or 0)
     except Exception:
         cnt = 0
     if cnt <= 0:
-        slot = find_slot(src_font, u)
+        slot = None
+        if cid_unicode_map is not None:
+            slot = cid_unicode_map.get(u)
+        if slot is None and unicode_name_map:
+            gname = unicode_name_map.get(u)
+            if gname:
+                slot = _cid_from_glyph_name(gname)
+                if slot is None:
+                    try:
+                        slot = int(src_font[gname].encoding)
+                    except Exception:
+                        slot = None
+        if slot is None and cid_unicode_map is None:
+            slot = find_slot(src_font, u)
+        if slot is None:
+            if cid_unicode_map is not None:
+                log_issue("cid_map_missing", u)
+            return None
         if slot != -1:
             try:
                 if getattr(src_font[slot], "isWorthOutputting", lambda: False)():
                     return (None, slot)
             except Exception:
                 pass
+        if cid_unicode_map is not None:
+            log_issue("cid_map_missing", u)
         return None
 
     try:
@@ -178,6 +280,8 @@ def resolve_src_slot_cid(src_font, u: int, name_index: Dict[str, int]) -> Option
         saved = 0
 
     tried = set()
+    missing_subfont = False
+    missing_slot: Optional[int] = None
     try:
         order, only_preferred = cid_preferred_indices(name_index, u)
         order = order or []
@@ -188,8 +292,25 @@ def resolve_src_slot_cid(src_font, u: int, name_index: Dict[str, int]) -> Option
                 src_font.cidsubfont = subidx
             except Exception:
                 continue
-            slot = find_slot(src_font, u)
+            slot = None
+            if cid_unicode_map is not None:
+                slot = cid_unicode_map.get(u)
+            if slot is None and unicode_name_map:
+                gname = unicode_name_map.get(u)
+                if gname:
+                    slot = _cid_from_glyph_name(gname)
+                    if slot is None:
+                        try:
+                            slot = int(src_font[gname].encoding)
+                        except Exception:
+                            slot = None
+            if slot is None and cid_unicode_map is None:
+                slot = find_slot(src_font, u)
             if slot == -1:
+                continue
+            if cid_unicode_map is not None and slot not in _cid_present_set(src_font, subidx):
+                missing_subfont = True
+                missing_slot = slot
                 continue
             try:
                 if src_font[slot].isWorthOutputting():
@@ -207,8 +328,25 @@ def resolve_src_slot_cid(src_font, u: int, name_index: Dict[str, int]) -> Option
                 src_font.cidsubfont = subidx
             except Exception:
                 continue
-            slot = find_slot(src_font, u)
+            slot = None
+            if cid_unicode_map is not None:
+                slot = cid_unicode_map.get(u)
+            if slot is None and unicode_name_map:
+                gname = unicode_name_map.get(u)
+                if gname:
+                    slot = _cid_from_glyph_name(gname)
+                    if slot is None:
+                        try:
+                            slot = int(src_font[gname].encoding)
+                        except Exception:
+                            slot = None
+            if slot is None and cid_unicode_map is None:
+                slot = find_slot(src_font, u)
             if slot == -1:
+                continue
+            if cid_unicode_map is not None and slot not in _cid_present_set(src_font, subidx):
+                missing_subfont = True
+                missing_slot = slot
                 continue
             try:
                 if src_font[slot].isWorthOutputting():
@@ -216,6 +354,11 @@ def resolve_src_slot_cid(src_font, u: int, name_index: Dict[str, int]) -> Option
             except Exception:
                 pass
 
+        if cid_unicode_map is not None and missing_subfont:
+            detail = f"slot={missing_slot}" if missing_slot is not None else ""
+            log_issue("cid_slot_missing_subfont", u, detail=detail)
+        if cid_unicode_map is not None:
+            log_issue("cid_slot_not_found", u)
         return None
     finally:
         try:

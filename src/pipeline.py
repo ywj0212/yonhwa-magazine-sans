@@ -8,8 +8,12 @@ import fontforge  # type: ignore
 from fontTools.ttLib import TTFont  # type: ignore
 
 import config as cfg
-from cid import build_cid_name_index, find_slot
+from cid import build_cid_name_index, build_cid_unicode_map, build_unicode_name_map, find_slot
 from glyph_copy import copy_from_src, remove_base_jp_coverage_and_clear
+from map_log import count_event as count_mapping_event
+from map_log import finish_run as finish_mapping_log
+from map_log import log_issue as log_mapping_issue
+from map_log import start_run as start_mapping_log
 from features import (
     apply_case_baseline_offsets,
     bake_feature_substitutions,
@@ -157,7 +161,17 @@ def build_one(variant: Dict[str, str]) -> None:
 
     # [0] Clear JP coverage in the base font.
     t = now()
-    rm_map, cleared = remove_base_jp_coverage_and_clear(base)
+    jp_unicode_map = build_cid_unicode_map(variant["japanese_font_path"])
+    jp_name_map = build_unicode_name_map(variant["japanese_font_path"])
+    jp_available = set(jp_unicode_map.keys()) | set(jp_name_map.keys())
+    if not jp_unicode_map:
+        log_mapping_issue("jp_cmap_empty", detail=f"path={variant['japanese_font_path']}")
+    elif len(jp_name_map) > len(jp_unicode_map):
+        log_mapping_issue(
+            "jp_cmap_partial",
+            detail=f"cmap={len(jp_unicode_map)} names={len(jp_name_map)} path={variant['japanese_font_path']}",
+        )
+    rm_map, cleared = remove_base_jp_coverage_and_clear(base, jp_available=jp_available)
     print(f"[0 base JP] removed_map={rm_map} cleared_slots={cleared} elapsed={now()-t:.2f}s", flush=True)
 
     # [1] Override digits from Lato (optional).
@@ -242,6 +256,8 @@ def build_one(variant: Dict[str, str]) -> None:
     jp = open_font(variant["japanese_font_path"])
     jp_upm = int(jp.em)
     jp_idx = build_cid_name_index(jp)
+    # Use cmap-derived CID mapping to avoid CID glyphs with non-Unicode .unicode values.
+    # Name map is used for logging and fallback when glyph names are available.
 
     jp_targets = [u for u in iter_ranges(cfg.JP_TARGET_RANGES) if not in_any(u, cfg.DIGIT_RANGES)]
     total = len(jp_targets)
@@ -251,7 +267,23 @@ def build_one(variant: Dict[str, str]) -> None:
             stage_progress("3 japanese", i, total, extra=f"replaced={repl}")
             continue
 
-        sw = copy_from_src(jp, base, u, cid_name_index=jp_idx)
+        has_jp = u in jp_available
+        if not has_jp:
+            if has_glyph(base, u):
+                count_mapping_event("base_used")
+            else:
+                log_mapping_issue("final_missing", u)
+            stage_progress("3 japanese", i, total, extra=f"replaced={repl}")
+            continue
+
+        sw = copy_from_src(
+            jp,
+            base,
+            u,
+            cid_name_index=jp_idx,
+            cid_unicode_map=jp_unicode_map,
+            unicode_name_map=jp_name_map,
+        )
 
         if sw is not None:
             ratio = float(base_upm) / float(jp_upm)
@@ -259,6 +291,13 @@ def build_one(variant: Dict[str, str]) -> None:
             sy_total = ratio * jp_pre_y
             bake(base, u, sx_total, sy_total, 0, sw * sx_total)
             repl += 1
+            count_mapping_event("jp_used")
+        else:
+            log_mapping_issue("jp_copy_failed", u)
+            if has_glyph(base, u):
+                count_mapping_event("base_used")
+            else:
+                log_mapping_issue("final_missing", u)
 
         stage_progress("3 japanese", i, total, extra=f"replaced={repl}")
         maybe_gc(i)
@@ -273,8 +312,28 @@ def build_one(variant: Dict[str, str]) -> None:
         if (not cfg.JP_EXTRA_OVERWRITE) and has_glyph(base, u):
             continue
 
-        sw = copy_from_src(jp, base, u, cid_name_index=jp_idx)
+        has_jp = u in jp_available
+        if not has_jp:
+            if has_glyph(base, u):
+                count_mapping_event("base_used")
+            else:
+                log_mapping_issue("final_missing", u)
+            continue
+
+        sw = copy_from_src(
+            jp,
+            base,
+            u,
+            cid_name_index=jp_idx,
+            cid_unicode_map=jp_unicode_map,
+            unicode_name_map=jp_name_map,
+        )
         if sw is None:
+            log_mapping_issue("jp_copy_failed", u)
+            if has_glyph(base, u):
+                count_mapping_event("base_used")
+            else:
+                log_mapping_issue("final_missing", u)
             continue
 
         ratio = float(base_upm) / float(jp_upm)
@@ -282,6 +341,7 @@ def build_one(variant: Dict[str, str]) -> None:
         sy_total = ratio * jp_pre_y
         bake(base, u, sx_total, sy_total, 0, sw * sx_total)
         filled_extra += 1
+        count_mapping_event("jp_used")
 
     jp.close()
     print(f"[3 jp extra] filled={filled_extra} (whitelist)", flush=True)
@@ -362,6 +422,7 @@ def build_one(variant: Dict[str, str]) -> None:
 def build_all() -> None:
     """Build every font variant declared in config.FONT_VARIANTS."""
     print()
+    start_mapping_log()
     for variant in cfg.FONT_VARIANTS:
         build_one(variant)
         print()
@@ -372,3 +433,4 @@ def build_all() -> None:
         print(f"[9 ttc] generated {ttc_path} (fonts={len(GENERATED_TTF)}) elapsed={now()-t:.2f}s", flush=True)
     else:
         print(f"[9 ttc] skipped (not enough fonts or generation failed) fonts_seen={len(GENERATED_TTF)}", flush=True)
+    finish_mapping_log()

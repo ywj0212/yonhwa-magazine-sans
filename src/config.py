@@ -120,7 +120,7 @@ GSUB_PROTECT_RANGES = [
 ]
 
 # Baseline tweaks (percent of UPM; positive moves glyphs upward).
-# math symbols: − + ÷ ± × = ≠ ≈ ~ < > ≤ ≥ ∓ ∞ √ ∑ ∫ ∂ (excluding *)
+# math symbols: − + ÷ ± × = ≠ ≈ ~ ≤ ≥ ∓ ∞ √ ∑ ∫ ∂ (excluding *)
 CASE_MATH_BASELINE_OFFSET = 7.78
 # halfwidth brackets / quotes: () <> {} [] « » ‹ ›
 CASE_BRACKET_BASELINE_OFFSET = 7.78
@@ -143,3 +143,9 @@ GC_EVERY = 4000
 
 # Drop anchors to avoid noisy FontForge warnings during copy/paste.
 NORMALIZE_ANCHORS = True
+
+# Mapping diagnostics (written to OUTPUT_DIR).
+LOG_MAPPING_ISSUES = True
+LOG_MAPPING_VERBOSE = True
+LOG_MAPPING_MAX_ENTRIES = 0  # 0 = unlimited
+MAPPING_LOG_PATH = f"{OUTPUT_DIR}/mapping_issues-{OUT_VERSION_STR}.log"
